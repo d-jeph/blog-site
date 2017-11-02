@@ -4,9 +4,9 @@ from django.core.mail import send_mail
 from django.db.models import Count
 
 from django.views.generic import ListView
-from .models import Post
 
-from .forms import EmailPostForm
+from .models import Post,Comment
+from .forms import EmailPostForm,CommentForm
 
 def post_list(request, category=None):
     object_list = Post.published.all()
@@ -37,9 +37,30 @@ def post_detail(request, year, month, day, post):
                                   publish__month=month,
                                   publish__day=day
                             )
-    return render(request
-                  ,'blog/post/detail.html'
-                  ,{'post': post})
+    # List of active comments for this post
+    comments = post.comments.filter(active=True)
+    if request.method == 'POST':
+        # A comment was posted
+        comment_form = CommentForm(data=request.POST)
+
+        if comment_form.is_valid():
+            # Create Comment object but don't save to database yet
+            new_comment = comment_form.save(commit=False)
+            # Assign the current post to the comment
+            new_comment.post = post
+            # Save the comment to the database
+            new_comment.save()
+            new_comment = True
+    else:
+        comment_form = CommentForm()
+        new_comment = False
+
+    return render(request, 'blog/post/detail.html', {'post': post,
+                                                     'comments': comments,
+                                                     'comment_form': comment_form,
+                                                     #'similar_posts': similar_posts,
+                                                     'new_comment': new_comment
+                                                     })
 
 def post_share(request, post_id):
     # Retrieve post by id
